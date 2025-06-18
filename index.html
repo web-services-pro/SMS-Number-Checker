@@ -438,12 +438,33 @@
         function parseCSV(file) {
             Papa.parse(file, {
                 header: true,
+                skipEmptyLines: true,
+                dynamicTyping: true,
+                delimitersToGuess: [',', '\t', '|', ';'],
                 complete: function(results) {
                     if (results.errors.length > 0) {
-                        showError('Error parsing CSV: ' + results.errors[0].message);
+                        // Filter out minor errors and only show critical ones
+                        const criticalErrors = results.errors.filter(error => 
+                            error.type === 'Delimiter' || error.type === 'Quotes'
+                        );
+                        if (criticalErrors.length > 0) {
+                            showError('Error parsing CSV: ' + criticalErrors[0].message);
+                            return;
+                        }
+                    }
+                    
+                    // Filter out any remaining empty rows
+                    originalData = results.data.filter(row => {
+                        return Object.values(row).some(value => 
+                            value !== null && value !== undefined && value !== ''
+                        );
+                    });
+                    
+                    if (originalData.length === 0) {
+                        showError('No valid data found in CSV file. Please check your file format.');
                         return;
                     }
-                    originalData = results.data;
+                    
                     setupColumnSelector(results.meta.fields);
                 },
                 error: function(error) {
@@ -469,7 +490,19 @@
                     const headers = jsonData[0];
                     const rows = jsonData.slice(1);
                     
-                    originalData = rows.map(row => {
+                    // Filter out empty rows
+                    const validRows = rows.filter(row => 
+                        row && row.some(cell => 
+                            cell !== null && cell !== undefined && cell !== ''
+                        )
+                    );
+                    
+                    if (validRows.length === 0) {
+                        showError('No valid data found in Excel file. Please check your file format.');
+                        return;
+                    }
+                    
+                    originalData = validRows.map(row => {
                         const obj = {};
                         headers.forEach((header, index) => {
                             obj[header] = row[index] || '';

@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phone Number SMS Analysis Tool</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 4s ease-in-out infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.1; }
+            50% { transform: scale(1.1); opacity: 0.2; }
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            position: relative;
+            z-index: 1;
+        }
+        
+        .main-content {
+            padding: 40px;
+        }
+        
+        .upload-section {
+            background: #f8f9fa;
+            border: 3px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-section:hover {
+            border-color: #3498db;
+            background: #e3f2fd;
+            transform: translateY(-2px);
+        }
+        
+        .upload-section.dragover {
+            border-color: #2196f3;
+            background: #bbdefb;
+            transform: scale(1.02);
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.3);
+        }
+        
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(52, 152, 219, 0.4);
+        }
+        
+        .column-selector {
+            margin: 20px 0;
+            padding: 20px;
+            background: #f1f3f4;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .column-selector select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1em;
+            background: white;
+        }
+        
+        .analyze-btn {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+            display: none;
+        }
+        
+        .analyze-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+        }
+        
+        .analyze-btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .progress-container {
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3498db, #2ecc71);
+            border-radius: 4px;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+        
+        .progress-text {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        
+        .results-section {
+            display: none;
+            margin-top: 30px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff, #f8f9fa);
+            padding: 25px;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+            border: 1px solid #e9ecef;
+            transition: transform 0.3s ease;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            color: #6c757d;
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .download-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+            margin: 10px;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
+        }
+        
+        .table-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #dee2e6;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        tr:hover {
+            background: #f8f9fa;
+        }
+        
+        .sms-yes { color: #27ae60; font-weight: bold; }
+        .sms-no { color: #e74c3c; font-weight: bold; }
+        .sms-possible { color: #f39c12; font-weight: bold; }
+        .sms-unknown { color: #95a5a6; font-weight: bold; }
+        
+        .error-message {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border: 1px solid #c3e6cb;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 15px;
+            }
+            
+            .main-content {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 SMS Analysis Tool</h1>
+            <p>Analyze phone numbers for SMS capability - Upload your spreadsheet and get instant results</p>
+        </div>
+        
+        <div class="main-content">
+            <div class="upload-section" id="uploadSection">
+                <h3>📁 Upload Your Spreadsheet</h3>
+                <p>Drag and drop your CSV or Excel file here, or click to browse</p>
+                <input type="file" id="fileInput" class="file-input" accept=".csv,.xlsx,.xls">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose File
+                </button>
+                <p style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                    Supports CSV, Excel (.xlsx, .xls) files
+                </p>
+            </div>
+            
+            <div class="column-selector" id="columnSelector">
+                <h4>Select Phone Number Column:</h4>
+                <select id="phoneColumnSelect">
+                    <option value="">Choose a column...</option>
+                </select>
+            </div>
+            
+            <div style="text-align: center;">
+                <button class="analyze-btn" id="analyzeBtn" onclick="analyzePhoneNumbers()">
+                    🔍 Analyze Phone Numbers
+                </button>
+            </div>
+            
+            <div class="progress-container" id="progressContainer">
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill"></div>
+                </div>
+                <div class="progress-text" id="progressText">Processing...</div>
+            </div>
+            
+            <div class="results-section" id="resultsSection">
+                <h3>📊 Analysis Results</h3>
+                
+                <div class="stats-grid" id="statsGrid">
+                    <!-- Stats will be populated here -->
+                </div>
+                
+                <div style="text-align: center; margin: 20px 0;">
+                    <button class="download-btn" onclick="downloadResults('csv')">
+                        📥 Download CSV
+                    </button>
+                    <button class="download-btn" onclick="downloadResults('excel')">
+                        📥 Download Excel
+                    </button>
+                </div>
+                
+                <div class="table-container">
+                    <table id="resultsTable">
+                        <thead id="tableHeaders"></thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let originalData = [];
+        let analyzedData = [];
+        let phoneColumnIndex = -1;
+        let fileName = '';
+
+        // File upload handling
+        const fileInput = document.getElementById('fileInput');
+        const uploadSection = document.getElementById('uploadSection');
+        const columnSelector = document.getElementById('columnSelector');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+
+        fileInput.addEventListener('change', handleFileSelect);
+        
+        // Drag and drop functionality
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+        
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+        
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                handleFileSelect();
+            }
+        });
+
+        function handleFileSelect() {
+            const file = fileInput.files[0];
+            if (!file) return;
+            
+            fileName = file.name;
+            const fileType = file.name.split('.').pop().toLowerCase();
+            
+            if (fileType === 'csv') {
+                parseCSV(file);
+            } else if (fileType === 'xlsx' || fileType === 'xls') {
+                parseExcel(file);
+            } else {
+                showError('Please select a CSV or Excel file.');
+            }
+        }
+
+        function parseCSV(file) {
+            Papa.parse(file, {
+                header: true,
+                complete: function(results) {
+                    if (results.errors.length > 0) {
+                        showError('Error parsing CSV: ' + results.errors[0].message);
+                        return;
+                    }
+                    originalData = results.data;
+                    setupColumnSelector(results.meta.fields);
+                },
+                error: function(error) {
+                    showError('Error reading CSV file: ' + error.message);
+                }
+            });
+        }
+
+        function parseExcel(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(firstSheet, {header: 1});
+                    
+                    if (jsonData.length < 2) {
+                        showError('Excel file must have at least 2 rows (header + data).');
+                        return;
+                    }
+                    
+                    const headers = jsonData[0];
+                    const rows = jsonData.slice(1);
+                    
+                    originalData = rows.map(row => {
+                        const obj = {};
+                        headers.forEach((header, index) => {
+                            obj[header] = row[index] || '';
+                        });
+                        return obj;
+                    });
+                    
+                    setupColumnSelector(headers);
+                } catch (error) {
+                    showError('Error parsing Excel file: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function setupColumnSelector(columns) {
+            const select = document.getElementById('phoneColumnSelect');
+            select.innerHTML = '<option value="">Choose a column...</option>';
+            
+            columns.forEach((column, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = column;
+                select.appendChild(option);
+            });
+            
+            columnSelector.style.display = 'block';
+            
+            select.addEventListener('change', function() {
+                if (this.value !== '') {
+                    phoneColumnIndex = parseInt(this.value);
+                    analyzeBtn.style.display = 'inline-block';
+                } else {
+                    analyzeBtn.style.display = 'none';
+                }
+            });
+            
+            showSuccess(`File loaded successfully! Found ${originalData.length} rows and ${columns.length} columns.`);
+        }
+
+        // Phone number analysis functions
+        function normalizePhoneNumber(phone) {
+            if (!phone) return '';
+            return phone.toString().replace(/[^\d+]/g, '');
+        }
+
+        function analyzePhoneNumber(phone) {
+            const normalized = normalizePhoneNumber(phone);
+            
+            if (!normalized) {
+                return {
+                    original: phone,
+                    isValid: false,
+                    formatted: '',
+                    country: '',
+                    carrier: 'Unknown',
+                    numberType: 'Unknown',
+                    smsCapable: 'Unknown',
+                    confidence: 'Low',
+                    error: 'Empty phone number'
+                };
+            }
+
+            // Basic US phone number validation
+            let isValid = false;
+            let formatted = '';
+            let country = '';
+            let numberType = 'Unknown';
+            let smsCapable = 'Unknown';
+            let confidence = 'Low';
+            let error = '';
+
+            // US phone number pattern (10 or 11 digits)
+            if (normalized.match(/^(\+?1)?[2-9]\d{2}[2-9]\d{2}\d{4}$/)) {
+                isValid = true;
+                const digits = normalized.replace(/^\+?1/, '');
+                formatted = `+1${digits}`;
+                country = 'United States';
+                
+                const areaCode = digits.substring(0, 3);
+                
+                // Simple heuristic based on area code patterns
+                if (isMobileAreaCode(areaCode)) {
+                    numberType = 'Mobile';
+                    smsCapable = 'Yes';
+                    confidence = 'High';
+                } else if (isLandlineAreaCode(areaCode)) {
+                    numberType = 'Landline';
+                    smsCapable = 'No';
+                    confidence = 'High';
+                } else {
+                    numberType = 'Fixed/Mobile';
+                    smsCapable = 'Possible';
+                    confidence = 'Medium';
+                }
+            } else if (normalized.match(/^\+\d{7,15}$/)) {
+                // International number
+                isValid = true;
+                formatted = normalized;
+                country = 'International';
+                numberType = 'Unknown';
+                smsCapable = 'Unknown';
+                confidence = 'Low';
+            } else {
+                error = 'Invalid phone number format';
+            }
+
+            return {
+                original: phone,
+                isValid,
+                formatted,
+                country,
+                carrier: 'Unknown',
+                numberType,
+                smsCapable,
+                confidence,
+                error
+            };
+        }
+
+        function isMobileAreaCode(areaCode) {
+            // Common mobile area codes (this is a simplified list)
+            const mobileAreaCodes = ['310', '323', '424', '213', '818', '747', '661', '626', '650'];
+            return mobileAreaCodes.includes(areaCode);
+        }
+
+        function isLandlineAreaCode(areaCode) {
+            // This is a simplified check - in reality it's more complex
+            return !isMobileAreaCode(areaCode);
+        }
+
+        async function analyzePhoneNumbers() {
+            if (originalData.length === 0 || phoneColumnIndex === -1) {
+                showError('Please select a file and phone number column first.');
+                return;
+            }
+
+            const phoneColumn = Object.keys(originalData[0])[phoneColumnIndex];
+            
+            analyzeBtn.disabled = true;
+            analyzeBtn.textContent = 'Analyzing...';
+            
+            const progressContainer = document.getElementById('progressContainer');
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            progressContainer.style.display = 'block';
+            
+            analyzedData = [];
+            
+            for (let i = 0; i < originalData.length; i++) {
+                const row = originalData[i];
+                const phoneNumber = row[phoneColumn];
+                
+                const analysis = analyzePhoneNumber(phoneNumber);
+                
+                const analyzedRow = {
+                    ...row,
+                    phone_is_valid: analysis.isValid,
+                    phone_formatted: analysis.formatted,
+                    phone_country: analysis.country,
+                    phone_carrier: analysis.carrier,
+                    phone_type: analysis.numberType,
+                    sms_capable: analysis.smsCapable,
+                    sms_confidence: analysis.confidence,
+                    phone_error: analysis.error
+                };
+                
+                analyzedData.push(analyzedRow);
+                
+                // Update progress
+                const progress = ((i + 1) / originalData.length) * 100;
+                progressFill.style.width = progress + '%';
+                progressText.textContent = `Processing ${i + 1} of ${originalData.length} numbers...`;
+                
+                // Small delay to prevent UI freezing
+                if (i % 50 === 0) {
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            }
+            
+            progressContainer.style.display = 'none';
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = '🔍 Analyze Phone Numbers';
+            
+            displayResults();
+        }
+
+        function displayResults() {
+            const resultsSection = document.getElementById('resultsSection');
+            const statsGrid = document.getElementById('statsGrid');
+            
+            // Calculate statistics
+            const total = analyzedData.length;
+            const valid = analyzedData.filter(row => row.phone_is_valid).length;
+            const invalid = total - valid;
+            
+            const smsStats = {
+                'Yes': analyzedData.filter(row => row.sms_capable === 'Yes').length,
+                'No': analyzedData.filter(row => row.sms_capable === 'No').length,
+                'Possible': analyzedData.filter(row => row.sms_capable === 'Possible').length,
+                'Unknown': analyzedData.filter(row => row.sms_capable === 'Unknown').length
+            };
+            
+            // Create stats cards
+            statsGrid.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #3498db;">${total}</div>
+                    <div class="stat-label">Total Numbers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #27ae60;">${valid}</div>
+                    <div class="stat-label">Valid Numbers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #e74c3c;">${invalid}</div>
+                    <div class="stat-label">Invalid Numbers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #27ae60;">${smsStats.Yes}</div>
+                    <div class="stat-label">SMS Capable</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #f39c12;">${smsStats.Possible}</div>
+                    <div class="stat-label">Possibly SMS</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" style="color: #e74c3c;">${smsStats.No}</div>
+                    <div class="stat-label">Not SMS Capable</div>
+                </div>
+            `;
+            
+            // Create results table
+            createResultsTable();
+            
+            resultsSection.style.display = 'block';
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function createResultsTable() {
+            const tableHeaders = document.getElementById('tableHeaders');
+            const tableBody = document.getElementById('tableBody');
+            
+            if (analyzedData.length === 0) return;
+            
+            // Create headers
+            const headers = Object.keys(analyzedData[0]);
+            tableHeaders.innerHTML = headers.map(header => `<th>${header}</th>`).join('');
+            
+            // Create rows (show first 100 for performance)
+            const displayData = analyzedData.slice(0, 100);
+            tableBody.innerHTML = displayData.map(row => {
+                const cells = headers.map(header => {
+                    let value = row[header];
+                    let className = '';
+                    
+                    if (header === 'sms_capable') {
+                        className = `sms-${value.toLowerCase()}`;
+                    }
+                    
+                    return `<td class="${className}">${value}</td>`;
+                }).join('');
+                
+                return `<tr>${cells}</tr>`;
+            }).join('');
+            
+            if (analyzedData.length > 100) {
+                const moreRow = `<tr><td colspan="${headers.length}" style="text-align: center; font-style: italic; padding: 20px;">... and ${analyzedData.length - 100} more rows (download to see all)</td></tr>`;
+                tableBody.innerHTML += moreRow;
+            }
+        }
+
+        function downloadResults(format) {
+            if (analyzedData.length === 0) {
+                showError('No data to download. Please analyze phone numbers first.');
+                return;
+            }
+            
+            const baseName = fileName.split('.')[0];
+            
+            if (format === 'csv') {
+                const csv = Papa.unparse(analyzedData);
+                downloadFile(csv, `${baseName}_analyzed.csv`, 'text/csv');
+            } else if (format === 'excel') {
+                const ws = XLSX.utils.json_to_sheet(analyzedData);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Analysis Results');
+                XLSX.writeFile(wb, `${baseName}_analyzed.xlsx`);
+            }
+        }
+
+        function downloadFile(content, filename, contentType) {
+            const blob = new Blob([content], { type: contentType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(message) {
+            const existing = document.querySelector('.error-message');
+            if (existing) existing.remove();
+            
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error-message';
+            errorDiv.textContent = message;
+            
+            document.querySelector('.main-content').insertBefore(errorDiv, document.querySelector('.upload-section').nextSibling);
+            
+            setTimeout(() => errorDiv.remove(), 5000);
+        }
+
+        function showSuccess(message) {
+            const existing = document.querySelector('.success-message');
+            if (existing) existing.remove();
+            
+            const successDiv = document.createElement('div');
+            successDiv.className = 'success-message';
+            successDiv.textContent = message;
+            
+            document.querySelector('.main-content').insertBefore(successDiv, document.querySelector('.upload-section').nextSibling);
+            
+            setTimeout(() => successDiv.remove(), 5000);
+        }
+    </script>
+</body>
+</html>
